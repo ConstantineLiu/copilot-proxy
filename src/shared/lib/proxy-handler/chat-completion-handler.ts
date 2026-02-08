@@ -44,7 +44,7 @@ export async function chatCompletionHandler(config: HandlerConfig) {
     baseURL: `https://${headers.get('host')}`,
     fetchOptions: {
       headers,
-    } as any,
+    },
   });
   const wrappedClient = observeOpenAI(client, {
     parent: trace,

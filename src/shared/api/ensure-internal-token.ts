@@ -6,7 +6,7 @@
 // ────────────────────────────────────────────────────────────────────
 import { getApiKeyByKey, getApiKeys } from '@/entities/apikey/api/apikey-storage';
 import { getBearerToken } from '@/entities/token/api/copilot-token-meta';
-import { getToken, getTokens } from '@/entities/token/api/token-storage';
+import { getSelectedToken, getToken, getTokens } from '@/entities/token/api/token-storage';
 import { log } from '@/shared/lib/logger';
 import { maskToken } from '@/shared/lib/mask-token';
 
@@ -21,17 +21,20 @@ async function getNextToken(): Promise<string | null> {
   return token.token;
 }
 
-async function resolveOAuthToken(headerValue: string): Promise<{ oauthToken?: string; error?: Response }> {
-  const apiKeys = await getApiKeys();
-  const hasApiKeys = apiKeys.length > 0;
+async function getDefaultOrNextToken(): Promise<string | null> {
+  const selected = await getSelectedToken();
+  if (selected?.token) return selected.token;
+  return getNextToken();
+}
 
-  // ── no Authorization header ──────────────────────────────────────
+async function resolveOAuthToken(headerValue: string): Promise<{ oauthToken?: string; error?: Response }> {
+  // Always require an API key for /api/* requests.
+  // Admin UI can create API keys on port 3000 (dashboard), then clients pass it via:
+  //   Authorization: Bearer <api-key>
   if (!headerValue) {
-    if (hasApiKeys) {
-      return { error: new Response('API key required', { status: 401 }) };
-    }
-    const token = await getNextToken();
-    return token ? { oauthToken: token } : { error: new Response('No tokens configured', { status: 401 }) };
+    const apiKeys = await getApiKeys();
+    const msg = apiKeys.length === 0 ? 'API key required (no API keys configured)' : 'API key required';
+    return { error: new Response(msg, { status: 401 }) };
   }
 
   // ── has Authorization header: check API key first ────────────────
@@ -50,18 +53,12 @@ async function resolveOAuthToken(headerValue: string): Promise<{ oauthToken?: st
     return token ? { oauthToken: token } : { error: new Response('No tokens configured', { status: 401 }) };
   }
 
-  // ── not an API key: if API keys exist, reject unknown keys ───────
-  if (hasApiKeys) {
-    return { error: new Response('Invalid API key', { status: 401 }) };
-  }
-
-  // ── no API keys configured: treat as raw GitHub token (legacy) ───
-  return { oauthToken: headerValue };
+  return { error: new Response('Invalid API key', { status: 401 }) };
 }
 
 export async function ensureInternalToken(event) {
   const authHeader = event.request.headers.get('authorization');
-  const headerValue = authHeader?.replace(/^(token|Bearer) ?/, '') || '';
+  const headerValue = (authHeader?.replace(/^(token|bearer)\s+/i, '') || '').trim();
 
   const { oauthToken, error } = await resolveOAuthToken(headerValue);
   if (error) return { error };

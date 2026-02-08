@@ -13,21 +13,21 @@ import Bookmark from 'lucide-solid/icons/bookmark';
 import BookmarkCheck from 'lucide-solid/icons/bookmark-check';
 import Pencil from 'lucide-solid/icons/pencil';
 import Trash from 'lucide-solid/icons/trash-2';
-import type { Component } from 'solid-js';
+import type { Component, JSX } from 'solid-js';
 import { ErrorBoundary, For, createSignal } from 'solid-js';
 
 type MenuItemProps = {
-  children?: any;
+  children?: JSX.Element;
   tooltip: string;
-  onClick: any;
+  onActivate: () => void;
 };
 
 const MenuItem: Component<MenuItemProps> = (props: MenuItemProps) => {
   return (
     <div
       class="d-tooltip d-tooltip-top ml-1 cursor-pointer hover:bg-neutral-700 active:bg-neutral-600 transition-colors duration-200 rounded p-1"
-      onClick={props.onClick}
-      onKeyPress={props.onClick}
+      onClick={() => props.onActivate()}
+      onKeyPress={(e) => e.key === 'Enter' && props.onActivate()}
       data-tip={props.tooltip}
     >
       <span class="opacity-60 text-zinc-400">{props.children}</span>
@@ -81,11 +81,11 @@ const TokenList: Component = () => {
                 <div class="d-list-col-grow">
                   <div class="flex items-center">
                     <div class="text-blue-500 flex-1">{item.name}</div>
-                    <MenuItem onClick={() => showModal(item)} tooltip="Edit">
+                    <MenuItem onActivate={() => showModal(item)} tooltip="Edit">
                       <Pencil size={18} />
                     </MenuItem>
                     <MenuItem
-                      onClick={() => onClickDefault(item)}
+                      onActivate={() => onClickDefault(item)}
                       tooltip={item.default ? 'Default token' : 'Set as default'}
                     >
                       {item.default ? (
@@ -94,7 +94,7 @@ const TokenList: Component = () => {
                         <Bookmark size={18} />
                       )}
                     </MenuItem>
-                    <MenuItem onClick={() => onClickDelete(item)} tooltip="Delete">
+                    <MenuItem onActivate={() => onClickDelete(item)} tooltip="Delete">
                       <Trash size={18} class="text-rose-400" />
                     </MenuItem>
                   </div>

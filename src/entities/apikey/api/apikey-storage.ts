@@ -5,6 +5,7 @@
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 // ────────────────────────────────────────────────────────────────────
 import storage from 'node-persist';
+import { randomBytes } from 'node:crypto';
 import { v4 as uuid } from 'uuid';
 import type { ApiKeyItem } from '../model/types';
 
@@ -18,12 +19,9 @@ const apiKeyStorage = storage.create({
 await apiKeyStorage.init();
 
 function generateKey(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = 'sk-';
-  for (let i = 0; i < 48; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return result;
+  // 36 bytes base64url => 48 chars (same length as the old implementation),
+  // but cryptographically strong.
+  return `sk-${randomBytes(36).toString('base64url')}`;
 }
 
 export async function createApiKey(name: string, tokenId: string | null): Promise<ApiKeyItem> {

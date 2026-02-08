@@ -46,6 +46,7 @@ export const renameToken = action(async (id: string, name: string) => {
 export const refreshTokenMeta = action(async (id: string) => {
   'use server';
   const tokenItem = await tokenStorage.getToken(id);
+  if (!tokenItem) return null;
   const meta = await refreshMeta(tokenItem.token);
   await tokenStorage.updateMetaByToken(tokenItem.token, meta);
   if (!tokenItem.username) {

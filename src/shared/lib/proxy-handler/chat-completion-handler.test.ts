@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { chatCompletionHandler } from './chat-completion-handler';
+import type { HandlerConfig } from './types';
 
 vi.mock('@solidjs/router', () => ({
   json: vi.fn((data) => ({ json: data })),
@@ -12,13 +13,13 @@ vi.mock('langfuse', () => ({
   })),
   observeOpenAI: vi.fn((client) => client),
 }));
-let createMock: any;
+let createMock: ReturnType<typeof vi.fn>;
 
 vi.mock('openai', () => ({
   default: vi.fn().mockImplementation(() => ({
     chat: {
       completions: {
-        create: (...args: any[]) => createMock(...args),
+        create: (...args: unknown[]) => createMock(...args),
       },
     },
   })),
@@ -31,17 +32,20 @@ vi.mock('@/shared/lib/mask-token', () => ({
 }));
 
 describe('chatCompletionHandler', () => {
-  let config: any;
+  let config: HandlerConfig;
 
   beforeEach(() => {
     config = {
       bearerToken: 'test-token',
-      headers: new Map([['host', 'api.example.com']]),
+      headers: new Headers({ host: 'api.example.com' }),
       bodyJson: {
         messages: [{ role: 'user', content: 'Hello' }],
         stream: false,
         model: 'gpt-3.5-turbo',
       },
+      targetUrl: 'https://api.example.com/v1/chat/completions',
+      targetPath: '/v1/chat/completions',
+      request: new Request('https://local.test/v1/chat/completions', { method: 'POST' }),
     };
   });
 

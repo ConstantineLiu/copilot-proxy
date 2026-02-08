@@ -40,7 +40,7 @@ async function startDeviceLogin() {
   const resp = await fetch('https://github.com/login/device/code', {
     method: 'POST',
     headers: MANDATORY_HEADERS,
-    body: JSON.stringify({ client_id: CLIENT_ID, scope: 'read:user' }),
+    body: JSON.stringify({ client_id: CLIENT_ID, scope: 'copilot read:user' }),
   });
   const json = await resp.json();
 

@@ -25,6 +25,8 @@ A simple HTTP proxy that exposes your GitHub Copilot free quota as an OpenAI-com
   - Add tokens manually
   - Manage multiple tokens with ease
   - View chat message and code completion usage statistics
+  - (Optional) Create API keys to protect `/api/*` access
+    - API keys can be global (round-robin across all tokens) or linked to a specific token
 - Supports Langfuse for LLM observability
 
 ## How to use
@@ -41,15 +43,15 @@ A simple HTTP proxy that exposes your GitHub Copilot free quota as an OpenAI-com
   - Or add your own token manually.
 - Set a default token.
 - Your OpenAI-compatible API base URL is `http://localhost:3000/api`
-  - You can test it like this: (no need authorization header since you've set a default token!)
+  - Create an API key in the dashboard and use it in clients (required):
   ```
   curl --request POST --url http://localhost:3000/api/chat/completions --header 'content-type: application/json' \
+  --header 'authorization: Bearer <api-key>' \
   --data '{
       "model": "gpt-4",
       "messages": [{"role": "user", "content": "Hi"}]
   }'
   ```
-  - You still can set a token in the request header `authorization: Bearer <token>` and it will override the default token.
 - (Optional) Use environment variable `PORT` for setting different port other than `3000`.
 
 ## Available environment variables
@@ -58,6 +60,7 @@ A simple HTTP proxy that exposes your GitHub Copilot free quota as an OpenAI-com
   - `STORAGE_DIR`: Directory to store tokens (default: `.storage`)
     - Be sure to backup this directory if you want to keep your tokens.
     - Note: even if you delete the storage folder, the token is still functional from GitHub Copilot. (That is how Github Copilot works at the moment.)
+  - `ADMIN_PASSWORD`: Enable Basic Auth on the admin UI (dashboard routes). `/api/*` is not protected by this; use API keys for that.
   - Langfuse is supported, see official [documentation](https://langfuse.com/docs/get-started) for more details.
       - `LANGFUSE_SECRET_KEY`: Langfuse secret key
       - `LANGFUSE_PUBLIC_KEY`: Langfuse public key
@@ -65,7 +68,7 @@ A simple HTTP proxy that exposes your GitHub Copilot free quota as an OpenAI-com
 
 ## Advanced usage
 - Dummy token `_` to make copilot-proxy use the default token.
-    - In most cases, the default token just works without 'Authorization' header. But if your LLM client requires a non-empty API key, you can use the special dummy token `_` to make copilot-proxy use the default token.
+    - Deprecated: API key is required for `/api/*` access.
 - Tips for using docker:
   - Mount the storage folder from host to persist the tokens and use .env file to set environment variables
     ```bash

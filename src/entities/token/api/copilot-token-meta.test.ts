@@ -11,6 +11,25 @@ vi.mock('./token-storage', () => ({
 import { getBearerToken, refreshMeta } from './copilot-token-meta';
 import * as tokenStorage from './token-storage';
 
+type MockResponse = {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  json: () => Promise<unknown>;
+};
+
+function makeMockResponse(
+  data: unknown,
+  init?: Partial<Pick<MockResponse, 'ok' | 'status' | 'statusText'>>,
+): MockResponse {
+  return {
+    ok: init?.ok ?? true,
+    status: init?.status ?? 200,
+    statusText: init?.statusText ?? 'OK',
+    json: async () => data,
+  };
+}
+
 const mockFetchResponse = {
   token: 'bearer-token-123',
   expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -19,12 +38,12 @@ const mockFetchResponse = {
 };
 
 describe('copilot-token-meta', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => mockFetchResponse,
-    }) as any;
+    fetchMock = vi.fn().mockResolvedValue(makeMockResponse(mockFetchResponse));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
   });
 
   it('refreshMeta fetches and updates meta', async () => {
@@ -44,7 +63,7 @@ describe('copilot-token-meta', () => {
     const token = await getBearerToken('oauth-abc');
     expect(token).toBe('bearer-token-123');
     // Second call should use cache, so fetch should not be called again
-    (globalThis.fetch as any).mockClear();
+    fetchMock.mockClear();
     const token2 = await getBearerToken('oauth-abc');
     expect(token2).toBe('bearer-token-123');
     expect(globalThis.fetch).not.toHaveBeenCalled();
@@ -56,19 +75,13 @@ describe('copilot-token-meta', () => {
       ...mockFetchResponse,
       expires_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // expired 1 hour ago
     };
-    (globalThis.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => expiredFetchResponse,
-    });
+    fetchMock.mockResolvedValueOnce(makeMockResponse(expiredFetchResponse));
 
     // 2. Call refreshMeta to cache the expired token
     await refreshMeta('oauth-abc');
 
     // 3. Now, set up fetch to be called again for the refresh (with a valid token)
-    (globalThis.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockFetchResponse,
-    });
+    fetchMock.mockResolvedValueOnce(makeMockResponse(mockFetchResponse));
 
     // 4. Spy on fetch
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
@@ -81,26 +94,21 @@ describe('copilot-token-meta', () => {
   });
 
   it('throws if fetch fails', async () => {
-    (globalThis.fetch as any).mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      statusText: 'Unauthorized',
-    });
+    fetchMock.mockResolvedValueOnce(makeMockResponse(null, { ok: false, status: 401, statusText: 'Unauthorized' }));
     await expect(refreshMeta('bad-token')).rejects.toThrow(
       'Failed to fetch token: 401 Unauthorized',
     );
   });
 
   it('handles null limited_user_quotas and limited_user_reset_date', async () => {
-    (globalThis.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
+    fetchMock.mockResolvedValueOnce(
+      makeMockResponse({
         token: 'bearer-token-xyz',
         expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
         limited_user_quotas: null,
         limited_user_reset_date: null,
       }),
-    });
+    );
 
     const meta = await refreshMeta('oauth-null');
     expect(meta.token).toBe('bearer-token-xyz');

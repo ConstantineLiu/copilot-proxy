@@ -72,7 +72,11 @@ const ApiKeyAddModal: Component<{
             <option value="">Global (round-robin all tokens)</option>
             <Show when={tokenList()}>
               {(tokens) =>
-                tokens().map((t) => <option value={t.id}>{t.name}</option>)
+                tokens().map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))
               }
             </Show>
           </select>

@@ -19,8 +19,16 @@ function checkBasicAuth(request: Request): boolean {
   const auth = request.headers.get('authorization');
   if (!auth?.startsWith('Basic ')) return false;
 
-  const decoded = atob(auth.slice(6));
-  const [user, pass] = decoded.split(':');
+  let decoded = '';
+  try {
+    decoded = Buffer.from(auth.slice(6), 'base64').toString('utf8');
+  } catch {
+    return false;
+  }
+  // Username/password are "user:pass". Password itself may contain ":".
+  const sep = decoded.indexOf(':');
+  const user = sep === -1 ? decoded : decoded.slice(0, sep);
+  const pass = sep === -1 ? '' : decoded.slice(sep + 1);
   return user === 'admin' && pass === ADMIN_PASSWORD;
 }
 
