@@ -1,4 +1,11 @@
+// ── widgets/Dashboard.tsx ───────────────────────────────────────────
+// [INPUT]: TokenList, TokenAuthPanel, ApiKeyList widgets
+// [OUTPUT]: Main dashboard page layout
+// [POS]: Top-level page widget, composed of token + API key sections
+// [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+// ────────────────────────────────────────────────────────────────────
 import { generateToken } from '@/entities/token/model/token-auth';
+import ApiKeyList from '@/widgets/ApiKeyList';
 import TokenAuthPanel from '@/widgets/TokenAuthPanel';
 import TokenList from '@/widgets/TokenList';
 import type { Component } from 'solid-js';
@@ -24,6 +31,14 @@ const Dashboard: Component = () => {
 
           <TokenAuthPanel />
           <TokenList />
+
+          <p class="flex border-b border-zinc-700 pb-4 mb-4 mt-10">
+            <span class="flex-1 text-xl">API Keys</span>
+          </p>
+          <p class="text-zinc-500 text-sm mb-4">
+            Protect your API. Clients must include <code class="text-zinc-400">Authorization: Bearer &lt;key&gt;</code> to use the proxy.
+          </p>
+          <ApiKeyList />
         </div>
       </div>
     </>

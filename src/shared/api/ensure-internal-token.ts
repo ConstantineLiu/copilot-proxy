@@ -1,15 +1,15 @@
 // ── ensure-internal-token.ts ────────────────────────────────────────
-// [INPUT]: token-storage (getTokens/getSelectedToken), copilot-token-meta
-// [OUTPUT]: ensureInternalToken() - resolves OAuth token to bearer token
-// [POS]: API auth layer, round-robin across all tokens when no header provided
+// [INPUT]: apikey-storage, token-storage, copilot-token-meta
+// [OUTPUT]: ensureInternalToken() - validates API key then resolves bearer token
+// [POS]: API auth layer: API key validation → token selection → Copilot auth
 // [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 // ────────────────────────────────────────────────────────────────────
+import { getApiKeyByKey, getApiKeys } from '@/entities/apikey/api/apikey-storage';
 import { getBearerToken } from '@/entities/token/api/copilot-token-meta';
-import { getTokens } from '@/entities/token/api/token-storage';
+import { getToken, getTokens } from '@/entities/token/api/token-storage';
 import { log } from '@/shared/lib/logger';
 import { maskToken } from '@/shared/lib/mask-token';
 
-const EMPTY_TOKEN = '_';
 let roundRobinIndex = 0;
 
 async function getNextToken(): Promise<string | null> {
@@ -21,25 +21,58 @@ async function getNextToken(): Promise<string | null> {
   return token.token;
 }
 
+async function resolveOAuthToken(headerValue: string): Promise<{ oauthToken?: string; error?: Response }> {
+  const apiKeys = await getApiKeys();
+  const hasApiKeys = apiKeys.length > 0;
+
+  // ── no Authorization header ──────────────────────────────────────
+  if (!headerValue) {
+    if (hasApiKeys) {
+      return { error: new Response('API key required', { status: 401 }) };
+    }
+    const token = await getNextToken();
+    return token ? { oauthToken: token } : { error: new Response('No tokens configured', { status: 401 }) };
+  }
+
+  // ── has Authorization header: check API key first ────────────────
+  const apiKey = await getApiKeyByKey(headerValue);
+  if (apiKey) {
+    if (apiKey.tokenId) {
+      const linked = await getToken(apiKey.tokenId);
+      if (!linked) {
+        return { error: new Response('Linked token not found', { status: 500 }) };
+      }
+      log.info({ 'API key': apiKey.name, 'Linked token': linked.name });
+      return { oauthToken: linked.token };
+    }
+    log.info({ 'API key': apiKey.name, mode: 'round-robin' });
+    const token = await getNextToken();
+    return token ? { oauthToken: token } : { error: new Response('No tokens configured', { status: 401 }) };
+  }
+
+  // ── not an API key: if API keys exist, reject unknown keys ───────
+  if (hasApiKeys) {
+    return { error: new Response('Invalid API key', { status: 401 }) };
+  }
+
+  // ── no API keys configured: treat as raw GitHub token (legacy) ───
+  return { oauthToken: headerValue };
+}
+
 export async function ensureInternalToken(event) {
   const authHeader = event.request.headers.get('authorization');
-  const providedToken = authHeader?.replace(/^(token|Bearer) ?/, '') || EMPTY_TOKEN;
-  const oauthToken = providedToken === EMPTY_TOKEN ? await getNextToken() : providedToken;
+  const headerValue = authHeader?.replace(/^(token|Bearer) ?/, '') || '';
 
-  if (!oauthToken) {
-    return {
-      error: new Response('Do login or provide a GitHub token in the Authorization header', {
-        status: 401,
-      }),
-    };
-  }
+  const { oauthToken, error } = await resolveOAuthToken(headerValue);
+  if (error) return { error };
+
   log.info({ 'Use token': maskToken(oauthToken) });
 
   try {
     const bearerToken = await getBearerToken(oauthToken);
     return { bearerToken };
-  } catch (error) {
-    log.error(`Error fetching Bearer token from ${oauthToken}: ${error.message}`);
-    return { error: new Response(`Internal server error: ${error.message}`, { status: 500 }) };
+  } catch (err) {
+    log.error(`Error fetching Bearer token: ${err.message}`);
+    return { error: new Response(`Internal server error: ${err.message}`, { status: 500 }) };
   }
 }
