@@ -52,6 +52,12 @@ export async function updateMetaByToken(oauthToken: string, meta: TokenStorageIt
   await tokenStorage.setItem(tokenItem.id, { ...tokenItem, meta });
 }
 
+export async function updateUsername(id: TokenStorageItem['id'], username: string) {
+  const item = await tokenStorage.getItem(id);
+  if (!item) return;
+  await tokenStorage.setItem(item.id, { ...item, username });
+}
+
 // Get all tokens
 export async function getTokens(): Promise<TokenStorageItem[]> {
   return (await tokenStorage.values()) || [];

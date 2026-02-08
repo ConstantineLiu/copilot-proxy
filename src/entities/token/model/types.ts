@@ -15,6 +15,7 @@ export interface TokenStorageItem {
   name: string;
   token: string;
   createdAt: number;
+  username?: string;
   meta?: CopilotMeta;
 }
 

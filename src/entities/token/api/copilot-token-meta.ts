@@ -57,6 +57,22 @@ export async function refreshMeta(oauthToken: string): Promise<CopilotMeta> {
   return meta;
 }
 
+export async function fetchGithubUsername(oauthToken: string): Promise<string | null> {
+  try {
+    const res = await fetch('https://api.github.com/user', {
+      headers: {
+        'User-Agent': 'CopilotProxy',
+        Authorization: `token ${oauthToken}`,
+      },
+    });
+    if (!res.ok) return null;
+    const { login } = await res.json();
+    return login || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getBearerToken(oauthToken: string): Promise<string> {
   let meta = cacheMap.get(oauthToken);
   if (!isTokenValid(meta)) {

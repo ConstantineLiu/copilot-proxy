@@ -1,4 +1,4 @@
-import { refreshMeta } from '@/entities/token/api/copilot-token-meta';
+import { fetchGithubUsername, refreshMeta } from '@/entities/token/api/copilot-token-meta';
 import * as tokenStorage from '@/entities/token/api/token-storage';
 import { maskToken } from '@/shared/lib/mask-token';
 import { action, query, revalidate } from '@solidjs/router';
@@ -45,9 +45,13 @@ export const renameToken = action(async (id: string, name: string) => {
 
 export const refreshTokenMeta = action(async (id: string) => {
   'use server';
-  const { token } = await tokenStorage.getToken(id);
-  const meta = await refreshMeta(token);
-  await tokenStorage.updateMetaByToken(token, meta);
+  const tokenItem = await tokenStorage.getToken(id);
+  const meta = await refreshMeta(tokenItem.token);
+  await tokenStorage.updateMetaByToken(tokenItem.token, meta);
+  if (!tokenItem.username) {
+    const username = await fetchGithubUsername(tokenItem.token);
+    if (username) await tokenStorage.updateUsername(id, username);
+  }
   return meta;
 }, 'refreshTokenMeta');
 
@@ -59,7 +63,9 @@ export const addToken = action(async (name: string, token: string): Promise<Toke
   }
   try {
     const item = await tokenStorage.storeToken({ name, token });
-    return transformTokenItem(item);
+    const username = await fetchGithubUsername(token);
+    if (username) await tokenStorage.updateUsername(item.id, username);
+    return transformTokenItem({ ...item, username });
   } catch (e) {
     return null;
   }

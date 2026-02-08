@@ -99,6 +99,9 @@ const TokenList: Component = () => {
                     </MenuItem>
                   </div>
                   <div class="text-zinc-400">{item.token}</div>
+                  {item.username && (
+                    <div class="text-emerald-500 text-xs mt-1">@{item.username}</div>
+                  )}
                   <div class="text-zinc-500 text-xs my-2">
                     Created at: {new Date(item.createdAt).toLocaleString()}
                   </div>
