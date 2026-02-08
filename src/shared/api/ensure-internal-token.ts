@@ -1,16 +1,30 @@
+// ── ensure-internal-token.ts ────────────────────────────────────────
+// [INPUT]: token-storage (getTokens/getSelectedToken), copilot-token-meta
+// [OUTPUT]: ensureInternalToken() - resolves OAuth token to bearer token
+// [POS]: API auth layer, round-robin across all tokens when no header provided
+// [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+// ────────────────────────────────────────────────────────────────────
 import { getBearerToken } from '@/entities/token/api/copilot-token-meta';
-import { getSelectedToken } from '@/entities/token/api/token-storage';
+import { getTokens } from '@/entities/token/api/token-storage';
 import { log } from '@/shared/lib/logger';
 import { maskToken } from '@/shared/lib/mask-token';
 
 const EMPTY_TOKEN = '_';
+let roundRobinIndex = 0;
 
-// Refactored: utility for API routes, not Express middleware
+async function getNextToken(): Promise<string | null> {
+  const tokens = await getTokens();
+  if (tokens.length === 0) return null;
+  const token = tokens[roundRobinIndex % tokens.length];
+  roundRobinIndex = (roundRobinIndex + 1) % tokens.length;
+  log.info({ 'Round-robin': `${roundRobinIndex}/${tokens.length}` });
+  return token.token;
+}
+
 export async function ensureInternalToken(event) {
   const authHeader = event.request.headers.get('authorization');
   const providedToken = authHeader?.replace(/^(token|Bearer) ?/, '') || EMPTY_TOKEN;
-  const selectedToken = await getSelectedToken();
-  const oauthToken = providedToken === EMPTY_TOKEN ? selectedToken?.token : providedToken;
+  const oauthToken = providedToken === EMPTY_TOKEN ? await getNextToken() : providedToken;
 
   if (!oauthToken) {
     return {
